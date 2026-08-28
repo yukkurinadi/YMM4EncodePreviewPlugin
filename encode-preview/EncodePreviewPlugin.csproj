@@ -16,7 +16,7 @@
 
   <PropertyGroup>
     <YmmDir Condition="Exists('C:\YMM4')">C:\YMM4</YmmDir>
-    <YmmDir Condition="'$(YmmDir)' == ''">$(AppData)\HAIsanGames\YukkuriMovieMaker4Hub\instance\YukkuriMovieMaker4</YmmDir>
+    <YmmDir Condition="'$(YmmDir)' == ''"></YmmDir>
   </PropertyGroup>
 
   <ItemGroup>
