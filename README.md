@@ -1,2 +1,0 @@
-# YMM4EncodePreviewPlugin
-YMM4の出力時に出力できている最新の1fをウィンドウに表示します。
