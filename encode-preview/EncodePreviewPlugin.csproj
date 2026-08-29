@@ -1,65 +1,60 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net10.0-windows</TargetFramework>
-    <Nullable>enable</Nullable>
-    <UseWPF>true</UseWPF>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>EncodePreviewPlugin</AssemblyName>
-    <RootNamespace>EncodePreviewPlugin</RootNamespace>
-    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>net10.0-windows</TargetFramework>
+		<Nullable>enable</Nullable>
+		<UseWPF>true</UseWPF>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<AssemblyName>EncodePreviewPlugin</AssemblyName>
+		<RootNamespace>EncodePreviewPlugin</RootNamespace>
+		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Lib.Harmony" Version="2.4.2" />
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Lib.Harmony" Version="2.4.2" />
+	</ItemGroup>
 
-  <PropertyGroup>
-    <YmmDir Condition="Exists('C:\YMM4')">C:\YMM4</YmmDir>
-    <YmmDir Condition="'$(YmmDir)' == ''"></YmmDir>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <Reference Include="YukkuriMovieMaker">
-      <HintPath>$(YmmDir)\YukkuriMovieMaker.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="YukkuriMovieMaker.Plugin">
-      <HintPath>$(YmmDir)\YukkuriMovieMaker.Plugin.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="YukkuriMovieMaker.Controls">
-      <HintPath>$(YmmDir)\YukkuriMovieMaker.Controls.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="Vortice.Direct2D1">
-      <HintPath>$(YmmDir)\Vortice.Direct2D1.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="Vortice.Direct3D11">
-      <HintPath>$(YmmDir)\Vortice.Direct3D11.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="Vortice.DXGI">
-      <HintPath>$(YmmDir)\Vortice.DXGI.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="Vortice.DirectX">
-      <HintPath>$(YmmDir)\Vortice.DirectX.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="Vortice.Mathematics">
-      <HintPath>$(YmmDir)\Vortice.Mathematics.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="SharpGen.Runtime">
-      <HintPath>$(YmmDir)\SharpGen.Runtime.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="SharpGen.Runtime.COM">
-      <HintPath>$(YmmDir)\SharpGen.Runtime.COM.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-  </ItemGroup>
+	<ItemGroup>
+		<Reference Include="YukkuriMovieMaker">
+			<HintPath>C:\YMM4\YukkuriMovieMaker.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="YukkuriMovieMaker.Plugin">
+			<HintPath>C:\YMM4\YukkuriMovieMaker.Plugin.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="YukkuriMovieMaker.Controls">
+			<HintPath>C:\YMM4\YukkuriMovieMaker.Controls.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="Vortice.Direct2D1">
+			<HintPath>C:\YMM4\Vortice.Direct2D1.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="Vortice.Direct3D11">
+			<HintPath>C:\YMM4\Vortice.Direct3D11.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="Vortice.DXGI">
+			<HintPath>C:\YMM4\Vortice.DXGI.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="Vortice.DirectX">
+			<HintPath>C:\YMM4\Vortice.DirectX.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="Vortice.Mathematics">
+			<HintPath>C:\YMM4\Vortice.Mathematics.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="SharpGen.Runtime">
+			<HintPath>C:\YMM4\SharpGen.Runtime.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="SharpGen.Runtime.COM">
+			<HintPath>C:\YMM4\SharpGen.Runtime.COM.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+	</ItemGroup>
 
 </Project>
