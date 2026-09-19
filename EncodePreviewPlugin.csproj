@@ -1,0 +1,72 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net10.0-windows</TargetFramework>
+		<Nullable>enable</Nullable>
+		<UseWPF>true</UseWPF>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<AssemblyName>EncodePreviewPlugin</AssemblyName>
+		<RootNamespace>EncodePreviewPlugin</RootNamespace>
+		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+		<YmmDir Condition="'$(YmmDir)'=='' and '$(YMM4_HOME)'!=''">$(YMM4_HOME)</YmmDir>
+		<YmmDir Condition="'$(YmmDir)'=='' and Exists('C:\YMM4\YukkuriMovieMaker.dll')">C:\YMM4</YmmDir>
+		<YmmDir Condition="'$(YmmDir)'=='' and Exists('D:\YMM4\YukkuriMovieMaker.dll')">D:\YMM4</YmmDir>
+		<YmmDir Condition="'$(YmmDir)'=='' and Exists('$(MSBuildThisFileDirectory)YukkuriMovieMaker.dll')">$(MSBuildThisFileDirectory.TrimEnd('\'))</YmmDir>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Lib.Harmony" Version="2.4.2" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Reference Include="YukkuriMovieMaker">
+			<HintPath>$(YmmDir)\YukkuriMovieMaker.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="YukkuriMovieMaker.Plugin">
+			<HintPath>$(YmmDir)\YukkuriMovieMaker.Plugin.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="YukkuriMovieMaker.Controls">
+			<HintPath>$(YmmDir)\YukkuriMovieMaker.Controls.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="YukkuriMovieMaker.Settings">
+			<HintPath>$(YmmDir)\YukkuriMovieMaker.Settings.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="Newtonsoft.Json">
+			<HintPath>$(YmmDir)\Newtonsoft.Json.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="Vortice.Direct2D1">
+			<HintPath>$(YmmDir)\Vortice.Direct2D1.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="Vortice.Direct3D11">
+			<HintPath>$(YmmDir)\Vortice.Direct3D11.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="Vortice.DXGI">
+			<HintPath>$(YmmDir)\Vortice.DXGI.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="Vortice.DirectX">
+			<HintPath>$(YmmDir)\Vortice.DirectX.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="Vortice.Mathematics">
+			<HintPath>$(YmmDir)\Vortice.Mathematics.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="SharpGen.Runtime">
+			<HintPath>$(YmmDir)\SharpGen.Runtime.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="SharpGen.Runtime.COM">
+			<HintPath>$(YmmDir)\SharpGen.Runtime.COM.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+	</ItemGroup>
+
+</Project>

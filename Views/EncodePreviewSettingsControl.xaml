@@ -1,0 +1,26 @@
+<UserControl x:Class="EncodePreviewPlugin.Views.EncodePreviewSettingsControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel>
+        <CheckBox Content="プラグインを有効にする"
+                  IsChecked="{Binding PluginEnabled}"
+                  Margin="0,0,0,12"/>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="フレームレート制限"
+                       VerticalAlignment="Center"
+                       Margin="0,0,12,0"/>
+            <TextBox Grid.Column="1"
+                     Text="{Binding PreviewFpsLimit, UpdateSourceTrigger=PropertyChanged}"
+                     VerticalAlignment="Center"/>
+        </Grid>
+        <TextBlock Text="0 で無制限"
+                   Opacity="0.6"
+                   FontSize="11"
+                   Margin="0,4,0,0"/>
+    </StackPanel>
+</UserControl>
