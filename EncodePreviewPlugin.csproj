@@ -5,6 +5,7 @@
 		<Nullable>enable</Nullable>
 		<UseWPF>true</UseWPF>
 		<ImplicitUsings>enable</ImplicitUsings>
+		<Version>1.0.3</Version>
 		<AssemblyName>EncodePreviewPlugin</AssemblyName>
 		<RootNamespace>EncodePreviewPlugin</RootNamespace>
 		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>

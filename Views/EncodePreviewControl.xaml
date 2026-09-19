@@ -33,6 +33,7 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -74,8 +75,22 @@
             </Grid>
         </Border>
 
+        <Border Grid.Row="1"
+                Background="#3D2E00"
+                BorderBrush="#8A6D1B"
+                BorderThickness="0,0,0,1"
+                Padding="10,6"
+                Cursor="Hand"
+                Visibility="{Binding HasUpdate, Converter={StaticResource BoolToVis}}"
+                MouseLeftButtonUp="OnUpdateBannerClick">
+            <TextBlock Text="{Binding UpdateMessage}"
+                       Foreground="#FFCC66"
+                       FontSize="11"
+                       TextWrapping="Wrap"/>
+        </Border>
+
         <!-- Main Preview Area -->
-        <Grid x:Name="VideoHost" Grid.Row="1" Background="#111111" ClipToBounds="True"
+        <Grid x:Name="VideoHost" Grid.Row="2" Background="#111111" ClipToBounds="True"
               MinWidth="160" MinHeight="90">
             <!-- Checkerboard for transparency supported video -->
             <Canvas HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Opacity="0.25"
@@ -144,12 +159,12 @@
         </Grid>
 
         <!-- Progress Bar -->
-        <ProgressBar Grid.Row="2" Value="{Binding Progress, Mode=OneWay}" 
+        <ProgressBar Grid.Row="3" Value="{Binding Progress, Mode=OneWay}" 
                      Maximum="100" 
                      Style="{StaticResource EncodeProgressBarStyle}" />
 
         <!-- Footer Info -->
-        <Border Grid.Row="3" Background="#252526" BorderBrush="#333337" BorderThickness="0,1,0,0" Padding="10,3">
+        <Border Grid.Row="4" Background="#252526" BorderBrush="#333337" BorderThickness="0,1,0,0" Padding="10,3">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>

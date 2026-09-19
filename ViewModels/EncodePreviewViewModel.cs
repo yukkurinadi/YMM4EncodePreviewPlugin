@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -27,6 +28,9 @@ namespace EncodePreviewPlugin.ViewModels
 
         private bool _showCheckerboard = true;
         private Brush _videoBackgroundBrush = Brushes.Black;
+        private bool _hasUpdate;
+        private string _updateMessage = "";
+        private string? _updateUrl;
 
         private readonly DispatcherTimer _uiTimer;
         private readonly Dispatcher _dispatcher;
@@ -107,6 +111,24 @@ namespace EncodePreviewPlugin.ViewModels
             private set => SetField(ref _videoBackgroundBrush, value);
         }
 
+        public bool HasUpdate
+        {
+            get => _hasUpdate;
+            private set => SetField(ref _hasUpdate, value);
+        }
+
+        public string UpdateMessage
+        {
+            get => _updateMessage;
+            private set => SetField(ref _updateMessage, value);
+        }
+
+        public string? UpdateUrl
+        {
+            get => _updateUrl;
+            private set => SetField(ref _updateUrl, value);
+        }
+
         public EncodePreviewViewModel(EncodePreviewPluginSettings settings)
         {
             _settings = settings;
@@ -122,6 +144,21 @@ namespace EncodePreviewPlugin.ViewModels
 
             EncodeStateHolder.EncodingStarted += OnEncodingStarted;
             EncodeStateHolder.EncodingFinished += OnEncodingFinished;
+
+            _ = CheckForUpdatesAsync();
+        }
+
+        private async Task CheckForUpdatesAsync()
+        {
+            var result = await UpdateChecker.CheckAsync().ConfigureAwait(false);
+            if (!result.HasUpdate || result.LatestVersion == null) return;
+
+            await _dispatcher.InvokeAsync(() =>
+            {
+                UpdateUrl = result.HtmlUrl;
+                UpdateMessage = $"アップデートがあります（{PluginVersion.Current} → {result.LatestVersion}）。クリックでリリースページを開きます。";
+                HasUpdate = true;
+            });
         }
 
         private void OnEncodingStarted()
