@@ -2,11 +2,13 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Media;
 using HarmonyLib;
 using Vortice.Direct2D1;
 using YukkuriMovieMaker.Commons;
+using YukkuriMovieMaker.Project;
 
 namespace EncodePreviewPlugin.Patches
 {
@@ -16,6 +18,17 @@ namespace EncodePreviewPlugin.Patches
         private static ID2D1Bitmap1? _previewCpuBitmap;
         private static readonly object _bitmapLock = new();
         private static long _lastPreviewCopyTimestamp;
+
+        // スクラブプレビュー用: 一時停止中に任意フレームを描画するための描画コンテキスト
+        private static object? _scrubRenderInstance;
+        private static object? _scrubVideoSource;
+        private static ID2D1Bitmap? _scrubTargetBitmap;
+        private static MethodBase? _scrubRenderMethod;
+        private static readonly Action<int> _scrubPreviewRenderer = RenderScrubPreviewFrame;
+
+        // スクラブプレビュー用に Render を再入呼び出ししている間だけ true (エンコードスレッド)
+        [ThreadStatic]
+        private static bool _renderingScrubPreview;
 
         private static string? _cachedLogDir;
 
@@ -97,7 +110,6 @@ namespace EncodePreviewPlugin.Patches
                 Log($"VideoFileWriter type: {vfwType.AssemblyQualifiedName}");
 
                 // 1. Patch Constructor (Prefix) - Open window immediately
-                //    Only patch constructors whose parameters can match our Prefix signature
                 var ctors = vfwType.GetConstructors(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
                 var ctorPrefix = new HarmonyMethod(typeof(VideoFileWriterPatch), nameof(Constructor_Prefix));
                 foreach (var ctor in ctors)
@@ -105,9 +117,6 @@ namespace EncodePreviewPlugin.Patches
                     try
                     {
                         var ps = ctor.GetParameters();
-                        // We accept (object scene, object plugin, string path) as prefix params,
-                        // but Harmony can also inject via __args. To be safe, we patch only ctors
-                        // that have >= 3 parameters (the likely "real" one), or use __args fallback.
                         harmony.Patch(ctor, prefix: ctorPrefix);
                         Log($"Patched VideoFileWriter ctor ({ps.Length} params): {ctor}");
                     }
@@ -130,12 +139,13 @@ namespace EncodePreviewPlugin.Patches
                     Log("ERROR: CreateFileAsync method not found!");
                 }
 
-                // 3. Patch Render (Postfix)
+                // 3. Patch Render (Prefix & Postfix)
                 var renderMethod = AccessTools.Method(vfwType, "Render");
                 if (renderMethod != null)
                 {
+                    var prefix = new HarmonyMethod(typeof(VideoFileWriterPatch), nameof(Render_Prefix));
                     var postfix = new HarmonyMethod(typeof(VideoFileWriterPatch), nameof(Render_Postfix));
-                    harmony.Patch(renderMethod, postfix: postfix);
+                    harmony.Patch(renderMethod, prefix: prefix, postfix: postfix);
                     Log("Patched VideoFileWriter.Render");
                 }
                 else
@@ -193,6 +203,12 @@ namespace EncodePreviewPlugin.Patches
                         }
                     }
                 }
+
+                // 6. Apply ExportConfigPatch (inject options into all encoder config views)
+                ExportConfigPatch.Apply(harmony);
+
+                // 7. Patch ProgressView so the preview is merged into YMM4's own output window
+                ProgressViewPatch.Apply(harmony);
             }
             catch (Exception ex)
             {
@@ -207,7 +223,6 @@ namespace EncodePreviewPlugin.Patches
                 if (!EncodePreviewPluginSettings.Default.PluginEnabled) return;
 
                 string? path = null;
-                // Try to find a string argument that looks like a path from __args
                 if (__args != null)
                 {
                     foreach (var a in __args)
@@ -219,8 +234,10 @@ namespace EncodePreviewPlugin.Patches
                         }
                     }
                 }
+                // この直後に YMM4 標準の出力進捗ウィンドウが開く
                 Log($"VideoFileWriter constructor called! path: {path ?? "(unknown)"}");
-                PreviewWindowManager.EnsureWindowShown();
+                ProgressViewPatch.ExpectOutputWindow = true;
+                PreviewWindowManager.EnsureWindowShownDeferred();
             }
             catch (Exception ex)
             {
@@ -228,14 +245,19 @@ namespace EncodePreviewPlugin.Patches
             }
         }
 
-        public static void CreateFileAsync_Prefix(object __instance)
+        public static void CreateFileAsync_Prefix(object __instance, ref CancellationToken cancellationToken)
         {
             try
             {
                 if (!EncodePreviewPluginSettings.Default.PluginEnabled) return;
 
-                Log("CreateFileAsync_Prefix called!");
-                PreviewWindowManager.EnsureWindowShown();
+                var stopCts = new CancellationTokenSource();
+                EncodeStateHolder.SetCancellationTokenSource(stopCts);
+                var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, stopCts.Token);
+                cancellationToken = linkedCts.Token;
+
+                Log("CreateFileAsync_Prefix called! Token linked for StopHere feature.");
+                PreviewWindowManager.EnsureWindowShownDeferred();
 
                 var vfwType = __instance.GetType();
                 var sceneField = vfwType.GetField("scene", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -311,6 +333,11 @@ namespace EncodePreviewPlugin.Patches
 
                             Log($"Encoding started: {width}x{height} @ {fps}fps, Transparent: {isTransparent}, BG: {bgColor}");
                             EncodeStateHolder.OnEncodeStart(start, total, width, height, fps, isTransparent, bgColor);
+                            // OnEncodeStart が OutputPath を初期化するため、開始処理の後で記録する
+                            EncodeStateHolder.SetOutputPath(string.IsNullOrWhiteSpace(outPath) ? null : outPath);
+
+                            // Apply item hiding if 'OnlySelectedItems' option is active
+                            ExportConfigManager.ApplyItemHiding(timeline as Timeline);
                         }
                     }
                 }
@@ -326,7 +353,43 @@ namespace EncodePreviewPlugin.Patches
             try
             {
                 Log("VideoFileWriter.Dispose called! Real encode finished. Auto-closing preview window in 800ms...");
+
+                // バーで戻した位置まで切り詰める (再エンコードなし)
+                try
+                {
+                    int keepFrames = EncodeStateHolder.ConsumeTrimRequest();
+                    if (keepFrames > 0)
+                    {
+                        Log($"Trimming output to {keepFrames}f...");
+                        EncodeStateHolder.SetTrimming(true);
+                        try
+                        {
+                            // UI スレッド上で呼ばれる場合に「切り詰め中」を一度描画させる
+                            TryRefreshUi();
+
+                            bool ok = VideoTrimmer.TryTrim(
+                                EncodeStateHolder.OutputPath,
+                                keepFrames,
+                                EncodeStateHolder.FPS,
+                                out string trimMessage);
+
+                            if (ok) Log($"Trim succeeded: {trimMessage}");
+                            else Log($"Trim failed: {trimMessage}");
+                        }
+                        finally
+                        {
+                            EncodeStateHolder.SetTrimming(false);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log($"Error in trimming: {ex}");
+                }
+
                 EncodeStateHolder.OnEncodeFinish();
+                ProgressViewPatch.ExpectOutputWindow = false;
+                ExportConfigManager.RestoreItemHiding();
                 
                 lock (_bitmapLock)
                 {
@@ -348,6 +411,85 @@ namespace EncodePreviewPlugin.Patches
             }
         }
 
+        /// <summary>
+        /// UI スレッド上で呼ばれた場合、保留中の描画を一度処理してから重い処理に入る。
+        /// </summary>
+        private static void TryRefreshUi()
+        {
+            try
+            {
+                var dispatcher = System.Windows.Application.Current?.Dispatcher;
+                if (dispatcher == null || !dispatcher.CheckAccess()) return;
+
+                var frame = new System.Windows.Threading.DispatcherFrame();
+                dispatcher.BeginInvoke(
+                    System.Windows.Threading.DispatcherPriority.Render,
+                    new Action(() => frame.Continue = false));
+                System.Windows.Threading.Dispatcher.PushFrame(frame);
+            }
+            catch
+            {
+            }
+        }
+
+        public static void Render_Prefix(
+            object __instance,
+            object videoSource,
+            ID2D1Bitmap targetBitmap,
+            MethodBase __originalMethod)
+        {
+            try
+            {
+                if (!EncodePreviewPluginSettings.Default.PluginEnabled) return;
+
+                // スクラブプレビュー用の再入呼び出しは、そのまま描画だけ行う
+                if (_renderingScrubPreview) return;
+
+                // 一時停止中にスクラブ位置のフレームを描画できるよう、現在の描画コンテキストを保持
+                _scrubRenderInstance = __instance;
+                _scrubVideoSource = videoSource;
+                _scrubTargetBitmap = targetBitmap;
+                _scrubRenderMethod = __originalMethod;
+
+                EncodeStateHolder.WaitIfPaused(_scrubPreviewRenderer);
+            }
+            catch (Exception ex)
+            {
+                Log($"Error in Render_Prefix: {ex}");
+            }
+        }
+
+        /// <summary>
+        /// 一時停止中に、スクラブ位置のタイムラインフレームを Render の再入呼び出しで描画する。
+        /// 再入中は Render_Prefix が一時停止処理をスキップし、Render_Postfix がプレビュー用に取り込む。
+        /// </summary>
+        private static void RenderScrubPreviewFrame(int timelineFrame)
+        {
+            var instance = _scrubRenderInstance;
+            var videoSource = _scrubVideoSource;
+            var targetBitmap = _scrubTargetBitmap;
+            var renderMethod = _scrubRenderMethod;
+
+            if (instance == null || videoSource == null || targetBitmap == null || renderMethod == null)
+            {
+                return;
+            }
+
+            try
+            {
+                _renderingScrubPreview = true;
+                renderMethod.Invoke(instance, new object?[] { videoSource, targetBitmap, timelineFrame });
+            }
+            catch (Exception ex)
+            {
+                Log($"Error in scrub preview render: {ex}");
+            }
+            finally
+            {
+                _renderingScrubPreview = false;
+            }
+        }
+
         public static void Render_Postfix(object __instance, object targetBitmap, int frame)
         {
             try
@@ -355,79 +497,100 @@ namespace EncodePreviewPlugin.Patches
                 if (!EncodePreviewPluginSettings.Default.PluginEnabled) return;
                 if (targetBitmap is not ID2D1Bitmap d2dBitmap) return;
 
-                int fpsLimit = EncodePreviewPluginSettings.Default.PreviewFpsLimit;
-                if (fpsLimit > 0)
+                bool isScrubPreview = _renderingScrubPreview;
+
+                if (!isScrubPreview)
                 {
-                    long now = Stopwatch.GetTimestamp();
-                    double minInterval = (double)Stopwatch.Frequency / fpsLimit;
-                    if (now - _lastPreviewCopyTimestamp < minInterval) return;
-                    _lastPreviewCopyTimestamp = now;
+                    int fpsLimit = EncodePreviewPluginSettings.Default.PreviewFpsLimit;
+                    if (fpsLimit > 0)
+                    {
+                        long now = Stopwatch.GetTimestamp();
+                        double minInterval = (double)Stopwatch.Frequency / fpsLimit;
+                        if (now - _lastPreviewCopyTimestamp < minInterval) return;
+                        _lastPreviewCopyTimestamp = now;
+                    }
                 }
 
-                var vfwType = __instance.GetType();
-                var devicesField = vfwType.GetField("devicesAndContext", BindingFlags.NonPublic | BindingFlags.Instance);
-                if (devicesField?.GetValue(__instance) is not IGraphicsDevicesAndContext devicesAndContext)
-                {
-                    return;
-                }
-
-                var sceneField = vfwType.GetField("scene", BindingFlags.NonPublic | BindingFlags.Instance);
-                var scene = sceneField?.GetValue(__instance);
-                if (scene == null) return;
-
-                var timelineProp = scene.GetType().GetProperty("Timeline");
-                var timeline = timelineProp?.GetValue(scene);
-                if (timeline == null) return;
-
-                var videoInfoProp = timeline.GetType().GetProperty("VideoInfo");
-                var videoInfo = videoInfoProp?.GetValue(timeline);
-                if (videoInfo == null) return;
-
-                int width = (int)(videoInfo.GetType().GetProperty("Width")?.GetValue(videoInfo) ?? 0);
-                int height = (int)(videoInfo.GetType().GetProperty("Height")?.GetValue(videoInfo) ?? 0);
-
-                if (width <= 0 || height <= 0) return;
-
-                lock (_bitmapLock)
-                {
-                    if (_previewCpuBitmap == null ||
-                        _previewCpuBitmap.PixelSize.Width != width ||
-                        _previewCpuBitmap.PixelSize.Height != height)
-                    {
-                        _previewCpuBitmap?.Dispose();
-                        _previewCpuBitmap = devicesAndContext.DeviceContext.CreateNotInitializedBitmap(
-                            width,
-                            height,
-                            BitmapOptions.CannotDraw | BitmapOptions.CpuRead
-                        );
-                        _tempPixelBuffer = new byte[width * height * 4];
-                    }
-
-                    if (d2dBitmap is ID2D1Bitmap1 d2dBitmap1)
-                    {
-                        _previewCpuBitmap.CopyFromBitmap(d2dBitmap1);
-                    }
-                    else
-                    {
-                        _previewCpuBitmap.CopyFromBitmap(d2dBitmap);
-                    }
-
-                    byte[]? tempBuf = _tempPixelBuffer;
-                    if (_previewCpuBitmap != null)
-                    {
-                        _previewCpuBitmap.ToBytes(ref tempBuf);
-                        _tempPixelBuffer = tempBuf;
-                    }
-
-                    if (_tempPixelBuffer != null)
-                    {
-                        EncodeStateHolder.UpdateFrame(_tempPixelBuffer, width, height, frame);
-                    }
-                }
+                CapturePreview(__instance, d2dBitmap, frame, isScrubPreview);
             }
             catch (Exception ex)
             {
                 Log($"Error in Render_Postfix: {ex}");
+            }
+        }
+
+        /// <summary>
+        /// 描画済みビットマップを CPU 側へコピーし、プレビュー用バッファを更新する。
+        /// </summary>
+        private static void CapturePreview(object __instance, ID2D1Bitmap d2dBitmap, int frame, bool isScrubPreview)
+        {
+            var vfwType = __instance.GetType();
+            var devicesField = vfwType.GetField("devicesAndContext", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (devicesField?.GetValue(__instance) is not IGraphicsDevicesAndContext devicesAndContext)
+            {
+                return;
+            }
+
+            var sceneField = vfwType.GetField("scene", BindingFlags.NonPublic | BindingFlags.Instance);
+            var scene = sceneField?.GetValue(__instance);
+            if (scene == null) return;
+
+            var timelineProp = scene.GetType().GetProperty("Timeline");
+            var timeline = timelineProp?.GetValue(scene);
+            if (timeline == null) return;
+
+            var videoInfoProp = timeline.GetType().GetProperty("VideoInfo");
+            var videoInfo = videoInfoProp?.GetValue(timeline);
+            if (videoInfo == null) return;
+
+            int width = (int)(videoInfo.GetType().GetProperty("Width")?.GetValue(videoInfo) ?? 0);
+            int height = (int)(videoInfo.GetType().GetProperty("Height")?.GetValue(videoInfo) ?? 0);
+
+            if (width <= 0 || height <= 0) return;
+
+            lock (_bitmapLock)
+            {
+                if (_previewCpuBitmap == null ||
+                    _previewCpuBitmap.PixelSize.Width != width ||
+                    _previewCpuBitmap.PixelSize.Height != height)
+                {
+                    _previewCpuBitmap?.Dispose();
+                    _previewCpuBitmap = devicesAndContext.DeviceContext.CreateNotInitializedBitmap(
+                        width,
+                        height,
+                        BitmapOptions.CannotDraw | BitmapOptions.CpuRead
+                    );
+                    _tempPixelBuffer = new byte[width * height * 4];
+                }
+
+                if (d2dBitmap is ID2D1Bitmap1 d2dBitmap1)
+                {
+                    _previewCpuBitmap.CopyFromBitmap(d2dBitmap1);
+                }
+                else
+                {
+                    _previewCpuBitmap.CopyFromBitmap(d2dBitmap);
+                }
+
+                byte[] tempBuf = _tempPixelBuffer ?? new byte[width * height * 4];
+                if (_previewCpuBitmap != null)
+                {
+                    _previewCpuBitmap.ToBytes(ref tempBuf!);
+                    _tempPixelBuffer = tempBuf;
+                }
+
+                if (_tempPixelBuffer != null)
+                {
+                    if (isScrubPreview)
+                    {
+                        // 出力済み位置 (CurrentFrame) を進めずにプレビューだけ差し替える
+                        EncodeStateHolder.UpdateScrubPreviewFrame(_tempPixelBuffer, width, height, frame);
+                    }
+                    else
+                    {
+                        EncodeStateHolder.UpdateFrame(_tempPixelBuffer, width, height, frame);
+                    }
+                }
             }
         }
 
@@ -439,7 +602,6 @@ namespace EncodePreviewPlugin.Patches
 
                 var vfwType = __instance.GetType();
 
-                // Try to get audio format information
                 int sampleRate = 48000;
                 int channels = 2;
                 int bitsPerSample = 16;
@@ -463,11 +625,9 @@ namespace EncodePreviewPlugin.Patches
                     }
                 }
 
-                // Extract audio data
                 byte[] audioBytes;
                 if (audioData is float[] floatSamples)
                 {
-                    // Convert float samples to 16-bit PCM
                     audioBytes = new byte[floatSamples.Length * 2];
                     for (int i = 0; i < floatSamples.Length; i++)
                     {

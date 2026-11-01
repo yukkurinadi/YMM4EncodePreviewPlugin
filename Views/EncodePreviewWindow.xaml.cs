@@ -1,7 +1,7 @@
 using System;
-using System.Runtime.InteropServices;
+using System.ComponentModel;
 using System.Windows;
-using System.Windows.Interop;
+using System.Windows.Threading;
 using EncodePreviewPlugin.ViewModels;
 
 namespace EncodePreviewPlugin.Views
@@ -9,27 +9,10 @@ namespace EncodePreviewPlugin.Views
     public partial class EncodePreviewWindow : Window
     {
         private readonly EncodePreviewViewModel _viewModel;
-        private const int WM_SIZING = 0x0214;
-        private const int WMSZ_LEFT = 1;
-        private const int WMSZ_RIGHT = 2;
-        private const int WMSZ_TOP = 3;
-        private const int WMSZ_TOPLEFT = 4;
-        private const int WMSZ_TOPRIGHT = 5;
-        private const int WMSZ_BOTTOM = 6;
-        private const int WMSZ_BOTTOMLEFT = 7;
-        private const int WMSZ_BOTTOMRIGHT = 8;
+        private readonly AspectRatioResizer _resizer;
 
-        private double _chromeWidth;
-        private double _chromeHeight;
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct RECT
-        {
-            public int Left;
-            public int Top;
-            public int Right;
-            public int Bottom;
-        }
+        private bool _fitPending;
+        private bool _userResized;
 
         public EncodePreviewWindow(EncodePreviewViewModel viewModel, EncodePreviewPluginSettings settings)
         {
@@ -37,25 +20,30 @@ namespace EncodePreviewPlugin.Views
             _viewModel = viewModel;
             PreviewControl.DataContext = viewModel;
 
-            SourceInitialized += (_, _) =>
-            {
-                var hwnd = new WindowInteropHelper(this).Handle;
-                HwndSource.FromHwnd(hwnd)?.AddHook(WndProc);
-            };
+            _resizer = new AspectRatioResizer(this, () => PreviewControl.VideoHostElement, GetVideoAspect);
+            _resizer.UserResizing += () => _userResized = true;
 
-            ContentRendered += (_, _) =>
-            {
-                SizeToContent = SizeToContent.Manual;
-                CacheChrome();
-            };
+            ContentRendered += (_, _) => RefitToVideoAspect();
+
+            _viewModel.PropertyChanged += OnViewModelPropertyChanged;
         }
 
-        private void CacheChrome()
+        private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            var host = PreviewControl.VideoHostElement;
-            if (host.ActualWidth <= 0 || host.ActualHeight <= 0) return;
-            _chromeWidth = Math.Max(0, ActualWidth - host.ActualWidth);
-            _chromeHeight = Math.Max(0, ActualHeight - host.ActualHeight);
+            if (e.PropertyName is not (nameof(EncodePreviewViewModel.PreviewAreaWidth)
+                or nameof(EncodePreviewViewModel.PreviewAreaHeight)))
+            {
+                return;
+            }
+
+            // 幅と高さは続けて更新されるため、1回のリサイズにまとめる
+            if (_fitPending) return;
+            _fitPending = true;
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+            {
+                _fitPending = false;
+                RefitToVideoAspect();
+            }));
         }
 
         private double GetVideoAspect()
@@ -75,64 +63,32 @@ namespace EncodePreviewPlugin.Views
             return 16.0 / 9.0;
         }
 
-        private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        // 動画のアスペクト比に合わせてウィンドウをリサイズする
+        private void RefitToVideoAspect()
         {
-            if (msg != WM_SIZING)
+            if (WindowState != WindowState.Normal) return;
+
+            // 手動リサイズ後はアスペクト比の補正のみ行い、ユーザーが決めた大きさを尊重する
+            if (_userResized)
             {
-                return IntPtr.Zero;
+                double hostWidth = PreviewControl.VideoHostElement.ActualWidth;
+                if (hostWidth <= 1) return;
+                _resizer.FitToVideoWidth(hostWidth);
+                return;
             }
 
-            var rect = Marshal.PtrToStructure<RECT>(lParam);
-            int width = rect.Right - rect.Left;
-            int height = rect.Bottom - rect.Top;
-            if (width <= 0 || height <= 0)
-            {
-                return IntPtr.Zero;
-            }
+            // プレビュー描画領域の目標幅は ViewModel が決める (横 640 固定、縦長時は縮小)
+            double targetWidth = _viewModel.PreviewAreaWidth;
+            if (targetWidth <= 1) return;
 
-            double aspect = GetVideoAspect();
-            double chromeW = _chromeWidth;
-            double chromeH = _chromeHeight;
-            double videoW = Math.Max(1, width - chromeW);
-            double videoH = Math.Max(1, height - chromeH);
-            int edge = wParam.ToInt32();
+            _resizer.FitToVideoWidth(targetWidth);
+        }
 
-            bool adjustHeight = edge is WMSZ_LEFT or WMSZ_RIGHT or WMSZ_TOPLEFT or WMSZ_TOPRIGHT or WMSZ_BOTTOMLEFT or WMSZ_BOTTOMRIGHT;
-            if (edge is WMSZ_TOP or WMSZ_BOTTOM)
-            {
-                adjustHeight = false;
-            }
-
-            if (adjustHeight)
-            {
-                videoH = videoW / aspect;
-                int newHeight = (int)Math.Round(videoH + chromeH);
-                if (edge is WMSZ_TOP or WMSZ_TOPLEFT or WMSZ_TOPRIGHT)
-                {
-                    rect.Top = rect.Bottom - newHeight;
-                }
-                else
-                {
-                    rect.Bottom = rect.Top + newHeight;
-                }
-            }
-            else
-            {
-                videoW = videoH * aspect;
-                int newWidth = (int)Math.Round(videoW + chromeW);
-                if (edge is WMSZ_LEFT or WMSZ_TOPLEFT or WMSZ_BOTTOMLEFT)
-                {
-                    rect.Left = rect.Right - newWidth;
-                }
-                else
-                {
-                    rect.Right = rect.Left + newWidth;
-                }
-            }
-
-            Marshal.StructureToPtr(rect, lParam, true);
-            handled = true;
-            return IntPtr.Zero;
+        protected override void OnClosed(EventArgs e)
+        {
+            _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+            _resizer.Dispose();
+            base.OnClosed(e);
         }
     }
 }

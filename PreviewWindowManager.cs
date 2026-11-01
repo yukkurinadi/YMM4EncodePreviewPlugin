@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Threading;
@@ -18,6 +19,30 @@ namespace EncodePreviewPlugin
         private static Dispatcher? _previewDispatcher;
         private static readonly object _lock = new();
         private static bool _starting;
+        private static bool _integrated;
+
+        /// <summary>
+        /// プレビューが YMM4 標準の出力ウィンドウ内に組み込まれているかどうか。
+        /// </summary>
+        public static bool IsIntegrated => _integrated;
+
+        /// <summary>
+        /// 標準出力ウィンドウへの組み込みを記録し、独立したプレビューウィンドウを閉じる。
+        /// </summary>
+        public static void RegisterIntegrated()
+        {
+            _integrated = true;
+            CloseWindow();
+        }
+
+        /// <summary>
+        /// 標準出力ウィンドウが閉じられたことを記録する。
+        /// </summary>
+        public static void UnregisterIntegrated()
+        {
+            _integrated = false;
+        }
+
         private const string PreviewTitle = "動画出力リアルタイムプレビュー";
 
         private const int GWL_STYLE = -16;
@@ -226,6 +251,31 @@ namespace EncodePreviewPlugin
             else d.Invoke(Show);
         }
 
+        /// <summary>
+        /// 標準の出力ウィンドウが開くのを待ってからプレビューを表示する。
+        /// 標準ウィンドウに組み込めた場合は独立ウィンドウを開かない。
+        /// </summary>
+        public static void EnsureWindowShownDeferred()
+        {
+            if (!Patches.ProgressViewPatch.IsAvailable)
+            {
+                EnsureWindowShown();
+                return;
+            }
+
+            Task.Run(async () =>
+            {
+                // 標準の出力ウィンドウが開いてプレビューが組み込まれるのを待つ
+                for (int i = 0; i < 15; i++)
+                {
+                    await Task.Delay(200);
+                    if (IsIntegrated) return;
+                }
+
+                EnsureWindowShown();
+            });
+        }
+
         public static void EnsureWindowShown()
         {
             if (!EncodePreviewPluginSettings.Default.PluginEnabled)
@@ -236,6 +286,11 @@ namespace EncodePreviewPlugin
 
             lock (_lock)
             {
+                if (_integrated)
+                {
+                    return;
+                }
+
                 if (_previewDispatcher != null && !_previewDispatcher.HasShutdownStarted && _window != null)
                 {
                     _previewDispatcher.BeginInvoke(() =>

@@ -28,7 +28,186 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- Base Modern Button Style -->
+        <Style x:Key="ModernButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#2D2D30"/>
+            <Setter Property="Foreground" Value="#D4D4D4"/>
+            <Setter Property="BorderBrush" Value="#3E3E42"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,5"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#3E3E42"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#007ACC"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#007ACC"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Opacity" Value="0.4"/>
+                                <Setter Property="Cursor" Value="Arrow"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Danger Button Style (Stop) -->
+        <Style x:Key="DangerButtonStyle" TargetType="Button" BasedOn="{StaticResource ModernButtonStyle}">
+            <Setter Property="Background" Value="#2D2224"/>
+            <Setter Property="BorderBrush" Value="#4E2B2E"/>
+            <Setter Property="Foreground" Value="#F28B82"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#5A2428"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#7E2E34"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#7E2E34"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#A0353C"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Opacity" Value="0.4"/>
+                                <Setter Property="Cursor" Value="Arrow"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- ヘッダー用の細い進捗バー -->
+        <Style x:Key="HeaderProgressBarStyle" TargetType="ProgressBar">
+            <Setter Property="Background" Value="#3A3A3D"/>
+            <Setter Property="Foreground" Value="#00BC7D"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Height" Value="6"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="3" ClipToBounds="True">
+                            <Grid x:Name="PART_Track">
+                                <Border x:Name="PART_Indicator" Background="{TemplateBinding Foreground}"
+                                        HorizontalAlignment="Left" CornerRadius="3"/>
+                            </Grid>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 停止位置バー -->
+        <Style x:Key="ScrubEmptyRepeatButtonStyle" TargetType="RepeatButton">
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="IsTabStop" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RepeatButton">
+                        <Border Background="Transparent" Height="20"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ScrubFillRepeatButtonStyle" TargetType="RepeatButton">
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="IsTabStop" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RepeatButton">
+                        <Border Background="#00BC7D" Height="4" CornerRadius="2" VerticalAlignment="Center"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ScrubThumbStyle" TargetType="Thumb">
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="Height" Value="16"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Grid Background="Transparent">
+                            <Ellipse x:Name="Dot" Width="12" Height="12" Fill="#E8E8E8"
+                                     Stroke="#1E1E1E" StrokeThickness="1"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Dot" Property="Fill" Value="#FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="Dot" Property="Fill" Value="#00BC7D"/>
+                                <Setter TargetName="Dot" Property="Stroke" Value="#FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ScrubSliderStyle" TargetType="Slider">
+            <Setter Property="Height" Value="20"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="IsMoveToPointEnabled" Value="True"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Slider">
+                        <Grid Background="Transparent">
+                            <Border Height="4" CornerRadius="2" Background="#3A3A3D" VerticalAlignment="Center"/>
+                            <Track x:Name="PART_Track">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="{x:Static Slider.DecreaseLarge}"
+                                                  Style="{StaticResource ScrubFillRepeatButtonStyle}"/>
+                                </Track.DecreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb Style="{StaticResource ScrubThumbStyle}"/>
+                                </Track.Thumb>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="{x:Static Slider.IncreaseLarge}"
+                                                  Style="{StaticResource ScrubEmptyRepeatButtonStyle}"/>
+                                </Track.IncreaseRepeatButton>
+                            </Track>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </UserControl.Resources>
+
 
     <Grid>
         <Grid.RowDefinitions>
@@ -37,17 +216,19 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- Header / Status Area -->
         <Border Grid.Row="0" Background="#252526" BorderBrush="#333337" BorderThickness="0,0,0,1" Padding="10,6">
             <Grid>
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- Status Indicator Dot -->
                     <Ellipse Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Center">
                         <Ellipse.Style>
@@ -56,6 +237,12 @@
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsEncoding}" Value="True">
                                         <Setter Property="Fill" Value="#00BC7D"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsPaused}" Value="True">
+                                        <Setter Property="Fill" Value="#E5A93C"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsStopRequested}" Value="True">
+                                        <Setter Property="Fill" Value="#F28B82"/>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
@@ -66,7 +253,16 @@
                     <TextBlock Text="{Binding FrameText}" Margin="10,0,0,0" FontSize="10" Foreground="#888888" VerticalAlignment="Center"/>
                 </StackPanel>
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <!-- 進捗バー: 状態表示と FPS の間の余白を使う -->
+                <ProgressBar Grid.Column="1"
+                             Value="{Binding Progress, Mode=OneWay}"
+                             Maximum="100"
+                             Margin="12,0,12,0"
+                             VerticalAlignment="Center"
+                             Style="{StaticResource HeaderProgressBarStyle}"
+                             ToolTip="{Binding Progress, StringFormat={}{0:F1}%}"/>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- FPS Badge -->
                     <Border Background="#333337" CornerRadius="3" Padding="5,1">
                         <TextBlock Text="{Binding RenderedFps, StringFormat='UI: {0} fps'}" FontSize="9" Foreground="#AAAAAA"/>
@@ -75,6 +271,7 @@
             </Grid>
         </Border>
 
+        <!-- Update Banner -->
         <Border Grid.Row="1"
                 Background="#3D2E00"
                 BorderBrush="#8A6D1B"
@@ -90,8 +287,7 @@
         </Border>
 
         <!-- Main Preview Area -->
-        <Grid x:Name="VideoHost" Grid.Row="2" Background="#111111" ClipToBounds="True"
-              MinWidth="160" MinHeight="90">
+        <Grid x:Name="VideoHost" Grid.Row="2" Background="#111111" ClipToBounds="True">
             <!-- Checkerboard for transparency supported video -->
             <Canvas HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Opacity="0.25"
                     Visibility="{Binding ShowCheckerboard, Converter={StaticResource BoolToVis}}">
@@ -163,8 +359,101 @@
                      Maximum="100" 
                      Style="{StaticResource EncodeProgressBarStyle}" />
 
+        <!-- Control Action Buttons -->
+        <Border Grid.Row="4" Background="#222225" BorderBrush="#333337" BorderThickness="0,0,0,1" Padding="10,6">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- 停止位置バー: 出力済みの位置までをドラッグで選択 -->
+                <Grid Grid.Row="0" Margin="0,0,0,7">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Column="0"
+                               Text="停止位置"
+                               FontSize="10"
+                               Foreground="#888888"
+                               VerticalAlignment="Center"
+                               Margin="0,0,8,0"/>
+
+                    <Slider x:Name="ScrubSlider"
+                            Grid.Column="1"
+                            Minimum="0"
+                            Maximum="{Binding ScrubMaximum, Mode=OneWay}"
+                            Value="{Binding ScrubPosition, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            Style="{StaticResource ScrubSliderStyle}"
+                            IsEnabled="{Binding CanControl}"
+                            VerticalAlignment="Center"
+                            ToolTip="つまみをドラッグすると一時停止し、出力を終了する位置を選べます (出力済みの範囲まで)"/>
+
+                    <TextBlock Grid.Column="2"
+                               Text="{Binding ScrubTimeText}"
+                               FontSize="10"
+                               Foreground="#AAAAAA"
+                               VerticalAlignment="Center"
+                               Margin="8,0,0,0"/>
+                </Grid>
+
+                <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center">
+                    <!-- 一時停止 / 再開 ボタン -->
+                    <Button Command="{Binding TogglePauseCommand}"
+                            Style="{StaticResource ModernButtonStyle}"
+                            Margin="0,0,8,0" MinWidth="85">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Grid Width="11" Height="11" Margin="0,0,6,0" VerticalAlignment="Center">
+                                <!-- 一時停止アイコン (IsPaused == False) -->
+                                <Path Data="M0,0 H3 V11 H0 Z M6,0 H9 V11 H6 Z" Fill="#CCCCCC" Stretch="Uniform">
+                                    <Path.Style>
+                                        <Style TargetType="Path">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsPaused}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Path.Style>
+                                </Path>
+                                <!-- 再開アイコン (IsPaused == True) -->
+                                <Path Data="M0,0 L9,5.5 L0,11 Z" Fill="#00BC7D" Stretch="Uniform">
+                                    <Path.Style>
+                                        <Style TargetType="Path">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsPaused}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Path.Style>
+                                </Path>
+                            </Grid>
+                            <TextBlock Text="{Binding PauseButtonText}" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- 出力をここで停止 ボタン -->
+                    <Button Command="{Binding StopHereCommand}"
+                            Style="{StaticResource DangerButtonStyle}"
+                            MinWidth="115"
+                            ToolTip="現在のフレームで出力を切り上げ、動画ファイルを正常に保存・完了します。停止位置バーで位置を選んだ場合は、その位置で確定します">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- 停止アイコン (正方形) -->
+                            <Path Data="M0,0 H10 V10 H0 Z" Fill="#F28B82" Stretch="Uniform" Width="9" Height="9" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding StopHereButtonText}" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
         <!-- Footer Info -->
-        <Border Grid.Row="4" Background="#252526" BorderBrush="#333337" BorderThickness="0,1,0,0" Padding="10,3">
+        <Border Grid.Row="5" Background="#252526" BorderBrush="#333337" BorderThickness="0,0,0,0" Padding="10,3">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>

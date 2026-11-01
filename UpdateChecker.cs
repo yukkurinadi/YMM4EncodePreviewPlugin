@@ -8,7 +8,7 @@ namespace EncodePreviewPlugin
 {
     public static class PluginVersion
     {
-        public static readonly Version Current = new(1, 0, 3);
+        public static readonly Version Current = new(1, 2, 0);
     }
 
     public readonly record struct UpdateCheckResult(bool HasUpdate, Version? LatestVersion, string? HtmlUrl);
